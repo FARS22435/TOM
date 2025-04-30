@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="ar">
+
+<head>
+  <meta charset="UTF-8">
+  <title>الدردشة</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://kit.fontawesome.com/a076d05399.js"></script>
+  <style>
+    /* إعدادات لتهيئة النصوص وعناصر صفحة الدردشة */
+    body {
+      font-family: 'Arial', sans-serif;
+      height: 100vh;
+      display: flex;
+      flex-direction: row;
+      margin: 0;
+      background-color: #f7fafc;
+    }
+
+    #sidebar {
+      width: 250px;
+      background-color: #2d3748;
+      color: #fff;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-start;
+      overflow-y: auto;
+    }
+
+    #chat {
+      flex-grow: 1;
+      display: flex;
+      flex-direction: column;
+      background-color: #edf2f7;
+    }
+
+    #messages {
+      flex-grow: 1;
+      padding: 20px;
+      background-color: #e2e8f0;
+      overflow-y: auto;
+      border-bottom: 2px solid #cbd5e0;
+    }
+
+    #input {
+      display: flex;
+      padding: 10px;
+      background-color: #fff;
+      border-top: 1px solid #cbd5e0;
+    }
+
+    #input input {
+      flex-grow: 1;
+      padding: 12px 15px;
+      margin-right: 10px;
+      border-radius: 25px;
+      border: 1px solid #e2e8f0;
+      font-size: 14px;
+      outline: none;
+    }
+
+    #input button {
+      padding: 10px 15px;
+      background-color: #3182ce;
+      border: none;
+      border-radius: 25px;
+      color: white;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+    }
+
+    #input button:hover {
+      background-color: #2b6cb0;
+    }
+
+    .message {
+      padding: 10px;
+      border-radius: 15px;
+      margin: 10px 0;
+      max-width: 75%;
+      word-wrap: break-word;
+    }
+
+    .from-me {
+      background-color: #4caf50;
+      align-self: flex-end;
+      color: white;
+    }
+
+    .from-other {
+      background-color: #edf2f7;
+      align-self: flex-start;
+      color: #4a5568;
+    }
+
+    .user-item {
+      padding: 10px;
+      cursor: pointer;
+      margin-bottom: 10px;
+      border-radius: 10px;
+      background-color: #4a5568;
+      color: #fff;
+      transition: background-color 0.3s;
+    }
+
+    .user-item:hover {
+      background-color: #2d3748;
+    }
+
+    .user-item i {
+      margin-left: 10px;
+    }
+
+    #userList {
+      margin-top: 20px;
+    }
+
+  </style>
+</head>
+
+<body>
+
+  <div id="sidebar" class="p-5">
+    <h3 class="text-2xl font-semibold text-white">بحث عن مستخدم</h3>
+    <input type="text" id="search" class="p-3 mt-2 w-full rounded-lg border-2 border-gray-300" placeholder="اسم المستخدم">
+    <button onclick="searchUser()" class="mt-3 w-full bg-blue-500 text-white rounded-lg p-2 hover:bg-blue-600">بحث</button>
+    <div id="userList" class="mt-5">
+      <!-- سيتم إضافة المستخدمين هنا -->
+    </div>
+  </div>
+
+  <div id="chat" class="flex flex-col">
+    <div id="messages" class="overflow-y-auto flex-grow p-4">
+      <!-- سيتم إضافة الرسائل هنا -->
+    </div>
+    <div id="input" class="flex items-center p-3 border-t-2">
+      <input type="text" id="messageInput" placeholder="اكتب رسالة..." class="flex-grow p-3 border-2 rounded-lg focus:outline-none">
+      <button onclick="sendMessage()" class="ml-3 bg-blue-500 text-white rounded-lg p-3 hover:bg-blue-600">
+        <i class="fas fa-paper-plane"></i>
+      </button>
+    </div>
+  </div>
+
+  <!-- Firebase Scripts -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "AIzaSyCAUQs04D6f1hl2tCBzGp9oYuoWKLmJtjI",
+      authDomain: "nimble-artwork-452619-b5.firebaseapp.com",
+      databaseURL: "https://nimble-artwork-452619-b5-default-rtdb.firebaseio.com",
+      projectId: "nimble-artwork-452619-b5",
+      storageBucket: "nimble-artwork-452619-b5.firebasestorage.app",
+      messagingSenderId: "211952503774",
+      appId: "1:211952503774:web:dbb27abd162a6b1435eb4f",
+      measurementId: "G-SLY9NRNDVD"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    const username = localStorage.getItem("username");
+    if (!username) location.href = "login.html";
+
+    let currentChatUser = null;
+
+    function loadChats() {
+      const userList = document.getElementById("userList");
+      db.ref("messages/" + username).on("value", snapshot => {
+        userList.innerHTML = "";
+        const data = snapshot.val();
+        if (data) {
+          const users = Object.keys(data);
+          users.forEach(user => {
+            const div = document.createElement("div");
+            div.className = "user-item";
+            div.textContent = user;
+            div.onclick = () => openChat(user);
+            userList.appendChild(div);
+          });
+        }
+      });
+    }
+
+    function openChat(user) {
+      currentChatUser = user;
+      const messagesDiv = document.getElementById("messages");
+      messagesDiv.innerHTML = "";
+
+      const path = "chats/" + getChatId(username, user);
+      db.ref(path).on("value", snapshot => {
+        messagesDiv.innerHTML = "";
+        const data = snapshot.val();
+        if (data) {
+          Object.values(data).forEach(msg => {
+            const div = document.createElement("div");
+            div.className = "message " + (msg.from === username ? "from-me" : "from-other");
+            div.textContent = msg.text;
+            messagesDiv.appendChild(div);
+          });
+          messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        }
+      });
+    }
+
+    function sendMessage() {
+      const text = document.getElementById("messageInput").value.trim();
+      if (!text || !currentChatUser) return;
+
+      const msg = {
+        from: username,
+        to: currentChatUser,
+        text: text,
+        timestamp: Date.now()
+      };
+
+      const chatId = getChatId(username, currentChatUser);
+      const path = "chats/" + chatId;
+      const newMsgRef = db.ref(path).push();
+      newMsgRef.set(msg);
+
+      db.ref("messages/" + username + "/" + currentChatUser).set(true);
+      db.ref("messages/" + currentChatUser + "/" + username).set(true);
+
+      document.getElementById("messageInput").value = "";
+    }
+
+    function searchUser() {
+      const searchName = document.getElementById("search").value.trim();
+      if (searchName && searchName !== username) {
+        openChat(searchName);
+      }
+    }
+
+    function getChatId(user1, user2) {
+      return [user1, user2].sort().join("_");
+    }
+
+    loadChats();
+  </script>
+</body>
+
+</html>
